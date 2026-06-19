@@ -1,4 +1,4 @@
-# Global CO2 Emission Analysis — End-to-End ML Project
+# Global CO2 Emission Analysis — End-to-End Data Analysis Project
 
 Full data science portfolio project: 270 years of CO2 data (220 countries, 1750–2020),
 four-layer analysis pipeline, ARIMA time-series forecasting, FastAPI serving, and MLflow tracking.
