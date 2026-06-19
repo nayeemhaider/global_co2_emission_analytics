@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Saved models
+models/*.pkl
+models/*.joblib
+models/*.onnx
+
+# Keep forecast JSON artifacts (lightweight, useful for reviewers)
+# models/*.json  ← intentionally NOT ignored
+
+# Data 
+# Raw data files — download instructions are in README
+# data/*.csv
+# data/*.tsv
+# data/*.parquet
+# data/*.feather
+# data/*.xlsx
+# data/*.json
+
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.coveragerc
+
+# Linting
+.ruff_cache/
+.mypy_cache/
+
+# Docker
+# Don't ignore docker-compose.yml or Dockerfile — those are tracked
+*.dockerignore
+
+# OS & editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs 
+*.log
+logs/
+nohup.out
+
+# Misc 
+*.bak
+*.tmp
+.cache/

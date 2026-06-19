@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CO2 Emission Observatory</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /*  Reset & base  */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #080d08;
+    --surface:    #0f180f;
+    --surface2:   #162016;
+    --border:     #1e2e1e;
+    --lime:       #a3e635;
+    --lime-dim:   #6aad1a;
+    --amber:      #f59e0b;
+    --red:        #ef4444;
+    --slate:      #94a3b8;
+    --text:       #e8f5e8;
+    --text-dim:   #6b8c6b;
+    --font-data:  'Space Mono', monospace;
+    --font-ui:    'Space Grotesk', sans-serif;
+    --sidebar-w:  220px;
+    --transition: 0.25s cubic-bezier(.4,0,.2,1);
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    transform: translateX(-100%);
+    transition: transform 0.5s cubic-bezier(.4,0,.2,1);
+    z-index: 10;
+  }
+  #sidebar.visible { transform: translateX(0); }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .icon {
+    font-size: 28px;
+    line-height: 1;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .sidebar-logo h1 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--lime);
+    line-height: 1.3;
+  }
+  .sidebar-logo p {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-family: var(--font-data);
+  }
+
+  .nav-section {
+    padding: 16px 12px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: var(--transition);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--slate);
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active {
+    color: var(--lime);
+    border-left-color: var(--lime);
+    background: rgba(163,230,53,0.06);
+  }
+  .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--font-data);
+  }
+  .api-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .api-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.4s;
+  }
+  .api-dot.online  { background: var(--lime); box-shadow: 0 0 6px var(--lime); }
+  .api-dot.offline { background: var(--red); }
+
+  /* Main content */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Top bar */
+  #topbar {
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .topbar-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  .topbar-title span { color: var(--text-dim); font-weight: 400; }
+
+  .api-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .api-input-label {
+    padding: 0 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--font-data);
+    border-right: 1px solid var(--border);
+    height: 32px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  #api-url {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-data);
+    font-size: 12px;
+    padding: 0 10px;
+    width: 220px;
+    height: 32px;
+  }
+  .btn-connect {
+    background: var(--lime);
+    color: #0a0f0a;
+    border: none;
+    padding: 0 14px;
+    height: 32px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition);
+    letter-spacing: 0.05em;
+  }
+  .btn-connect:hover { background: #bef264; }
+
+  /* Page container */
+  #page {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 32px 32px 48px;
+    scroll-behavior: smooth;
+  }
+
+  /* Sections */
+  .section { display: none; animation: fadeUp 0.35s ease forwards; }
+  .section.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Hero (Overview) */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+  .hero-counter {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-counter::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(163,230,53,0.07) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .counter-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--lime);
+    margin-bottom: 10px;
+  }
+  .counter-value {
+    font-family: var(--font-data);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -1px;
+    transition: color 0.3s;
+  }
+  .counter-unit {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    font-family: var(--font-data);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .stat-card.visible { opacity: 1; transform: translateY(0); }
+  .stat-card:hover { border-color: var(--lime-dim); }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: var(--font-data);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Section heading */
+  .sec-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sec-heading h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .sec-badge {
+    font-size: 10px;
+    font-family: var(--font-data);
+    background: rgba(163,230,53,0.12);
+    color: var(--lime);
+    border: 1px solid rgba(163,230,53,0.25);
+    border-radius: 4px;
+    padding: 2px 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Chart cards */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .chart-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 18px;
+  }
+  .chart-wrap { position: relative; width: 100%; }
+  .chart-wrap canvas { width: 100% !important; }
+
+  /* Country search */
+  .search-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color var(--transition);
+  }
+  .search-input:focus { border-color: var(--lime-dim); }
+  .btn-primary {
+    background: var(--lime);
+    color: #0a0f0a;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition);
+    white-space: nowrap;
+  }
+  .btn-primary:hover { background: #bef264; }
+  .btn-primary:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+  /* Datalist suggestions */
+  #country-input { list-style: none; }
+
+  /* History table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-data);
+    font-size: 12px;
+  }
+  .data-table th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-ui);
+    font-weight: 600;
+  }
+  .data-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(30,46,30,0.6);
+    color: var(--text);
+  }
+  .data-table tr:hover td { background: var(--surface2); }
+  .data-table td.positive { color: var(--red); }
+  .data-table td.negative { color: var(--lime); }
+
+  /* Risk labels */
+  .risk-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    letter-spacing: 0.05em;
+  }
+  .risk-Critical { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+  .risk-High     { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+  .risk-Medium   { background: rgba(234,179,8,0.15);  color: #facc15; border: 1px solid rgba(234,179,8,0.3); }
+  .risk-Low      { background: rgba(163,230,53,0.15); color: var(--lime); border: 1px solid rgba(163,230,53,0.3); }
+
+  /* Risk table */
+  .risk-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background var(--transition);
+  }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-row:hover { background: var(--surface2); }
+  .risk-country { flex: 1; font-weight: 500; font-size: 13px; }
+  .risk-score-bar-wrap { flex: 2; }
+  .risk-score-bar-bg {
+    background: var(--surface2);
+    border-radius: 3px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .risk-score-bar { height: 100%; border-radius: 3px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+  .risk-score-num {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--text-dim);
+    width: 36px;
+    text-align: right;
+  }
+
+  /* Prescriptive cards */
+  .presc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 14px;
+    transition: border-color var(--transition);
+  }
+  .presc-card:hover { border-color: var(--lime-dim); }
+  .presc-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .presc-country { font-size: 15px; font-weight: 600; flex: 1; }
+  .urgency-immediate {
+    font-size: 10px; font-weight: 700;
+    background: rgba(239,68,68,0.15); color: #f87171;
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 4px; padding: 2px 8px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .urgency-ontrack {
+    font-size: 10px; font-weight: 700;
+    background: rgba(163,230,53,0.12); color: var(--lime);
+    border: 1px solid rgba(163,230,53,0.25);
+    border-radius: 4px; padding: 2px 8px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .presc-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .presc-metric { background: var(--surface2); border-radius: 7px; padding: 10px 14px; }
+  .presc-metric-label { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .presc-metric-value { font-family: var(--font-data); font-size: 14px; font-weight: 700; }
+  .presc-actions { font-size: 12.5px; color: var(--slate); }
+  .presc-actions li { padding: 3px 0; }
+
+  /* Spinner */
+  .spinner-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    gap: 10px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--lime);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px;
+    padding: 16px 20px;
+    color: #fca5a5;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .empty-state .icon { font-size: 36px; margin-bottom: 12px; display: block; }
+
+  /* Two-col layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🌍</span>
+    <h1>CO2 Emission<br>Observatory</h1>
+    <p>1750 – 2020 · 220 countries</p>
+  </div>
+
+  <div class="nav-section">Analysis</div>
+  <div class="nav-item active" data-section="overview">
+    <span class="nav-icon">◉</span> Overview
+  </div>
+  <div class="nav-item" data-section="descriptive">
+    <span class="nav-icon">📊</span> Descriptive
+  </div>
+  <div class="nav-item" data-section="diagnostic">
+    <span class="nav-icon">🔍</span> Diagnostic
+  </div>
+
+  <div class="nav-section">Forecasting</div>
+  <div class="nav-item" data-section="predictive">
+    <span class="nav-icon">🔮</span> Predictive
+  </div>
+  <div class="nav-item" data-section="prescriptive">
+    <span class="nav-icon">💡</span> Prescriptive
+  </div>
+
+  <div class="nav-section">Explore</div>
+  <div class="nav-item" data-section="country">
+    <span class="nav-icon">🗺️</span> Country Lookup
+  </div>
+  <div class="nav-item" data-section="forecast">
+    <span class="nav-icon">📈</span> Forecast
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="api-indicator">
+      <div class="api-dot" id="api-dot"></div>
+      <span id="api-status">Connecting…</span>
+    </div>
+    <div id="api-url-display" style="color:var(--text-dim);font-size:10px;word-break:break-all;"></div>
+  </div>
+</aside>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div class="topbar-title" id="topbar-title">Overview <span>/ Summary</span></div>
+    <div class="api-input-wrap">
+      <div class="api-input-label">API</div>
+      <input id="api-url" type="text" value="http://localhost:8000" spellcheck="false" />
+      <button class="btn-connect" onclick="connectApi()">Connect</button>
+    </div>
+  </div>
+
+  <!-- Page -->
+  <div id="page">
+
+    <!-- OVERVIEW  -->
+    <div class="section active" id="sec-overview">
+      <div class="hero-grid">
+        <div class="hero-counter">
+          <div class="counter-label">Global CO2 Emissions · Latest Year</div>
+          <div class="counter-value" id="hero-counter">—</div>
+          <div class="counter-unit">metric tons · 2020</div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card" id="sc-countries">
+            <div class="stat-label">Countries</div>
+            <div class="stat-value" id="sv-countries">—</div>
+            <div class="stat-sub">in dataset</div>
+          </div>
+          <div class="stat-card" id="sc-years">
+            <div class="stat-label">Year Range</div>
+            <div class="stat-value" id="sv-years">—</div>
+            <div class="stat-sub">270+ years of data</div>
+          </div>
+          <div class="stat-card" id="sc-top">
+            <div class="stat-label">Top Emitter</div>
+            <div class="stat-value" id="sv-top" style="font-size:15px;">—</div>
+            <div class="stat-sub" id="sv-top-val">latest year</div>
+          </div>
+          <div class="stat-card" id="sc-rows">
+            <div class="stat-label">Data Points</div>
+            <div class="stat-value" id="sv-rows">—</div>
+            <div class="stat-sub">total records</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DESCRIPTIVE ────────────────────────────────────────── -->
+    <div class="section" id="sec-descriptive">
+      <div class="sec-heading">
+        <h2>Descriptive Analysis</h2>
+        <span class="sec-badge"></span>
+      </div>
+      <div id="desc-content">
+        <div class="spinner-wrap"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+
+    <!-- DIAGNOSTIC -->
+    <div class="section" id="sec-diagnostic">
+      <div class="sec-heading">
+        <h2>Diagnostic Analysis</h2>
+        <span class="sec-badge"></span>
+      </div>
+      <div id="diag-content">
+        <div class="spinner-wrap"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+
+    <!-- PREDICTIVE -->
+    <div class="section" id="sec-predictive">
+      <div class="sec-heading">
+        <h2>Predictive Analysis</h2>
+        <span class="sec-badge">ARIMA Forecasting</span>
+      </div>
+      <div id="pred-content">
+        <div class="spinner-wrap"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+
+    <!-- PRESCRIPTIVE -->
+    <div class="section" id="sec-prescriptive">
+      <div class="sec-heading">
+        <h2>Prescriptive Analysis</h2>
+        <span class="sec-badge">Policy Recommendations</span>
+      </div>
+      <div id="presc-content">
+        <div class="spinner-wrap"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+
+    <!-- COUNTRY LOOKUP -->
+    <div class="section" id="sec-country">
+      <div class="sec-heading">
+        <h2>Country History</h2>
+        <span class="sec-badge">Annual Time Series</span>
+      </div>
+      <div class="search-row">
+        <input class="search-input" id="country-search" list="country-list"
+               placeholder="Type a country name e.g. China, Germany…" autocomplete="off" />
+        <datalist id="country-list"></datalist>
+        <input class="search-input" type="number" id="since-year"
+               value="1950" min="1750" max="2020" style="width:110px;flex:none;" />
+        <button class="btn-primary" onclick="loadCountryHistory()">Load</button>
+      </div>
+      <div id="country-content">
+        <div class="empty-state">
+          <span class="icon">🗺️</span>
+          Select a country above and click Load
+        </div>
+      </div>
+    </div>
+
+    <!-- FORECAST -->
+    <div class="section" id="sec-forecast">
+      <div class="sec-heading">
+        <h2>Country Forecast</h2>
+        <span class="sec-badge">ARIMA · 10-Year Horizon</span>
+      </div>
+      <div class="search-row">
+        <input class="search-input" id="fc-country-search" list="country-list"
+               placeholder="Type a country name e.g. India, France…" autocomplete="off" />
+        <button class="btn-primary" id="fc-btn" onclick="loadForecast()">Forecast</button>
+      </div>
+      <div id="forecast-content">
+        <div class="empty-state">
+          <span class="icon">📈</span>
+          Select a country and click Forecast to run ARIMA
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page -->
+</div><!-- /main -->
+
+<script>
+'use strict';
+
+// Config 
+let API_BASE = (document.getElementById('api-url').value || 'http://localhost:8000').replace(/\/$/, '');
+let countriesList = [];
+const chartInstances = {};
+
+// API helpers 
+async function apiFetch(path) {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+  return res.json();
+}
+
+function connectApi() {
+  API_BASE = (document.getElementById('api-url').value || 'http://localhost:8000').replace(/\/$/, '');
+  document.getElementById('api-url-display').textContent = API_BASE;
+  init();
+}
+
+// Navigation 
+const SECTION_TITLES = {
+  overview:     ['Overview', 'Summary'],
+  descriptive:  ['Descriptive', 'What happened?'],
+  diagnostic:   ['Diagnostic', 'Why did it happen?'],
+  predictive:   ['Predictive', 'ARIMA Forecasting'],
+  prescriptive: ['Prescriptive', 'Policy Recommendations'],
+  country:      ['Country History', 'Annual Time Series'],
+  forecast:     ['Country Forecast', '10-Year ARIMA'],
+};
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const sec = item.dataset.section;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + sec).classList.add('active');
+    const [title, sub] = SECTION_TITLES[sec] || [sec, ''];
+    document.getElementById('topbar-title').innerHTML = `${title} <span>/ ${sub}</span>`;
+    loadSection(sec);
+  });
+});
+
+const loaded = new Set();
+function loadSection(sec) {
+  if (loaded.has(sec)) return;
+  loaded.add(sec);
+  if (sec === 'descriptive')  loadDescriptive();
+  if (sec === 'diagnostic')   loadDiagnostic();
+  if (sec === 'predictive')   loadPredictive();
+  if (sec === 'prescriptive') loadPrescriptive();
+}
+
+// ── Chart.js defaults ───────────────────────────────────────────
+Chart.defaults.color = '#6b8c6b';
+Chart.defaults.borderColor = '#1e2e1e';
+Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function mkChart(id, config) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  chartInstances[id] = new Chart(ctx, config);
+}
+
+// ── Format helpers ──────────────────────────────────────────────
+function fmtTons(v) {
+  if (v == null) return '—';
+  if (Math.abs(v) >= 1e12) return (v / 1e12).toFixed(2) + 'T';
+  if (Math.abs(v) >= 1e9)  return (v / 1e9).toFixed(2) + 'B';
+  if (Math.abs(v) >= 1e6)  return (v / 1e6).toFixed(1) + 'M';
+  if (Math.abs(v) >= 1e3)  return (v / 1e3).toFixed(1) + 'K';
+  return v.toFixed(0);
+}
+
+function fmtNum(v) {
+  if (v == null) return '—';
+  return Number(v).toLocaleString('en-US');
+}
+
+function riskBarColor(label) {
+  return { Critical: '#f87171', High: '#fbbf24', Medium: '#facc15', Low: '#a3e635' }[label] || '#94a3b8';
+}
+
+function spinner() {
+  return '<div class="spinner-wrap"><div class="spinner"></div> Loading…</div>';
+}
+
+function errorBox(msg) {
+  return `<div class="error-box">⚠ ${msg}</div>`;
+}
+
+// ── INIT ────────────────────────────────────────────────────────
+async function init() {
+  const dot    = document.getElementById('api-dot');
+  const status = document.getElementById('api-status');
+  dot.className = 'api-dot';
+  status.textContent = 'Connecting…';
+
+  try {
+    const [health, summary, countries] = await Promise.all([
+      apiFetch('/health'),
+      apiFetch('/summary'),
+      apiFetch('/countries'),
+    ]);
+
+    dot.className = 'api-dot online';
+    status.textContent = 'API online';
+
+    // Populate country datalists
+    countriesList = countries.countries || [];
+    ['country-list'].forEach(id => {
+      const dl = document.getElementById(id);
+      if (!dl) return;
+      dl.innerHTML = countriesList.map(c => `<option value="${c}"></option>`).join('');
+    });
+
+    // Animate hero counter
+    animateCounter('hero-counter', summary.global_co2_latest_total_tons);
+
+    // Stat cards
+    const cards = ['sc-countries','sc-years','sc-top','sc-rows'];
+    document.getElementById('sv-countries').textContent = fmtNum(summary.total_countries);
+    document.getElementById('sv-years').textContent =
+      `${summary.year_range[0]}–${summary.year_range[1]}`;
+    document.getElementById('sv-top').textContent = summary.highest_emitter_latest || '—';
+    document.getElementById('sv-top-val').textContent =
+      fmtTons(summary.highest_emission_value) + ' tons';
+    document.getElementById('sv-rows').textContent = fmtNum(summary.total_rows);
+
+    cards.forEach((id, i) => {
+      setTimeout(() => {
+        document.getElementById(id)?.classList.add('visible');
+      }, 200 + i * 80);
+    });
+
+  } catch (err) {
+    dot.className = 'api-dot offline';
+    status.textContent = 'Offline';
+    console.error(err);
+  }
+}
+
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  if (!el || !target) return;
+  const duration = 1800;
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const val = Math.round(ease * target);
+    el.textContent = fmtTons(val);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = fmtTons(target);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ── DESCRIPTIVE ─────────────────────────────────────────────────
+async function loadDescriptive() {
+  const el = document.getElementById('desc-content');
+  el.innerHTML = spinner();
+  try {
+    const d = await apiFetch('/descriptive');
+
+    const globalAnnual = d.global_annual_totals || [];
+    const top10All     = d.top10_alltime_emitters || [];
+    const top10Latest  = d.top10_latest_year_emitters || [];
+    const decades      = d.decade_totals || [];
+    const perCapita    = d.top10_per_capita_latest || [];
+
+    el.innerHTML = `
+      <div class="chart-card">
+        <h3>Global Annual CO2 Emissions (1750–2020)</h3>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="ch-global"></canvas>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="chart-card">
+          <h3>Top 10 All-Time Emitters</h3>
+          <div class="chart-wrap" style="height:300px">
+            <canvas id="ch-top10all"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>CO2 by Decade — Global Total</h3>
+          <div class="chart-wrap" style="height:300px">
+            <canvas id="ch-decade"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="chart-card">
+          <h3>Top 10 Emitters — Latest Year</h3>
+          <div class="chart-wrap" style="height:300px">
+            <canvas id="ch-top10latest"></canvas>
+          </div>
+        </div>
+        ${perCapita.length ? `
+        <div class="chart-card">
+          <h3>Highest Per-Capita Emitters — Latest Year</h3>
+          <div class="chart-wrap" style="height:300px">
+            <canvas id="ch-percapita"></canvas>
+          </div>
+        </div>` : ''}
+      </div>
+    `;
+
+    // Global trend
+    mkChart('ch-global', {
+      type: 'line',
+      data: {
+        labels: globalAnnual.map(r => r.year),
+        datasets: [{
+          data: globalAnnual.map(r => r.global_co2_tons),
+          borderColor: '#a3e635', borderWidth: 1.5,
+          fill: true,
+          backgroundColor: ctx => {
+            const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+            g.addColorStop(0,'rgba(163,230,53,0.25)');
+            g.addColorStop(1,'rgba(163,230,53,0)');
+            return g;
+          },
+          pointRadius: 0, tension: 0.3,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#1e2e1e' }, ticks: { maxTicksLimit: 10 } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+        },
+      }
+    });
+
+    // Top 10 all time
+    mkChart('ch-top10all', {
+      type: 'bar',
+      data: {
+        labels: top10All.map(r => r.country),
+        datasets: [{ data: top10All.map(r => r.total_co2_tons),
+          backgroundColor: 'rgba(163,230,53,0.7)', borderRadius: 4 }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+          y: { grid: { display: false } },
+        },
+      }
+    });
+
+    // Decades
+    const decadeColors = decades.map((_, i) => `hsl(${90 + i * 8},70%,${45 + i * 2}%)`);
+    mkChart('ch-decade', {
+      type: 'bar',
+      data: {
+        labels: decades.map(r => r.decade + 's'),
+        datasets: [{ data: decades.map(r => r.co2_tons),
+          backgroundColor: decadeColors, borderRadius: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+        },
+      }
+    });
+
+    // Top 10 latest — doughnut
+    const dColors = ['#a3e635','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#10b981','#f97316','#ec4899','#6366f1'];
+    mkChart('ch-top10latest', {
+      type: 'doughnut',
+      data: {
+        labels: top10Latest.map(r => r.country),
+        datasets: [{ data: top10Latest.map(r => r.co2_tons),
+          backgroundColor: dColors, borderWidth: 1, borderColor: '#0f180f' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '55%',
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtTons(ctx.raw)} tons` } },
+        },
+      }
+    });
+
+    // Per capita
+    if (perCapita.length) {
+      mkChart('ch-percapita', {
+        type: 'bar',
+        data: {
+          labels: perCapita.map(r => r.country),
+          datasets: [{ data: perCapita.map(r => r.co2_per_capita),
+            backgroundColor: 'rgba(245,158,11,0.75)', borderRadius: 4 }]
+        },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+            y: { grid: { display: false } },
+          },
+        }
+      });
+    }
+
+  } catch(err) {
+    el.innerHTML = errorBox(err.message);
+  }
+}
+
+// ── DIAGNOSTIC ──────────────────────────────────────────────────
+async function loadDiagnostic() {
+  const el = document.getElementById('diag-content');
+  el.innerHTML = spinner();
+  try {
+    const d = await apiFetch('/diagnostic');
+
+    const periods   = d.period_growth_rates || {};
+    const vol       = d.most_volatile_countries_1990_2020 || [];
+    const share1950 = d.emission_share_1950 || [];
+    const share2020 = d.emission_share_2020 || [];
+    const corr      = d.correlation_population_co2;
+
+    let periodHTML = Object.entries(periods).map(([key, pdata]) => {
+      const growers = pdata.top_5_growers || [];
+      return `
+        <div class="chart-card">
+          <h3>${key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())} (${pdata.period[0]}–${pdata.period[1]})</h3>
+          <div class="chart-wrap" style="height:220px">
+            <canvas id="ch-period-${key}"></canvas>
+          </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+        <div class="stat-card visible">
+          <div class="stat-label">Fastest Growth Decade</div>
+          <div class="stat-value">${d.fastest_growth_decade || '—'}s</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Biggest Drop Decade</div>
+          <div class="stat-value">${d.biggest_drop_decade || '—'}s</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Population–CO2 Correlation</div>
+          <div class="stat-value">${corr != null ? corr.toFixed(3) : '—'}</div>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-bottom:24px;">
+        <div class="chart-card">
+          <h3>Emission Share — 1950</h3>
+          <div class="chart-wrap" style="height:260px"><canvas id="ch-share1950"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Emission Share — 2020</h3>
+          <div class="chart-wrap" style="height:260px"><canvas id="ch-share2020"></canvas></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:24px;">
+        ${periodHTML}
+      </div>
+
+      <div class="chart-card">
+        <h3>Most Volatile Emitters (1990–2020) — Std Dev of YoY % Change</h3>
+        <div class="chart-wrap" style="height:260px"><canvas id="ch-vol"></canvas></div>
+      </div>
+    `;
+
+    const shColors = ['#a3e635','#f59e0b','#3b82f6','#ef4444','#8b5cf6'];
+    const shOpts = {
+      type: 'doughnut',
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '50%',
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toFixed(1)}%` } },
+        },
+      }
+    };
+
+    mkChart('ch-share1950', { ...shOpts, data: {
+      labels: share1950.map(r => r.country),
+      datasets: [{ data: share1950.map(r => r.share_pct),
+        backgroundColor: shColors, borderWidth: 1, borderColor: '#0f180f' }]
+    }});
+
+    mkChart('ch-share2020', { ...shOpts, data: {
+      labels: share2020.map(r => r.country),
+      datasets: [{ data: share2020.map(r => r.share_pct),
+        backgroundColor: shColors, borderWidth: 1, borderColor: '#0f180f' }]
+    }});
+
+    // Period growth bars
+    Object.entries(periods).forEach(([key, pdata]) => {
+      const growers = pdata.top_5_growers || [];
+      mkChart(`ch-period-${key}`, {
+        type: 'bar',
+        data: {
+          labels: growers.map(r => r.country),
+          datasets: [{ data: growers.map(r => r.growth_pct),
+            backgroundColor: growers.map(r => r.growth_pct > 0 ? 'rgba(239,68,68,0.75)' : 'rgba(163,230,53,0.75)'),
+            borderRadius: 4 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => v.toFixed(0) + '%' } },
+          },
+        }
+      });
+    });
+
+    // Volatility
+    mkChart('ch-vol', {
+      type: 'bar',
+      data: {
+        labels: vol.map(r => r.country),
+        datasets: [{ data: vol.map(r => r.co2_yoy_pct),
+          backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => v.toFixed(1) + '%' } },
+        },
+      }
+    });
+
+  } catch(err) {
+    el.innerHTML = errorBox(err.message);
+  }
+}
+
+// ── PREDICTIVE ──────────────────────────────────────────────────
+async function loadPredictive() {
+  const el = document.getElementById('pred-content');
+  el.innerHTML = spinner();
+  try {
+    const d = await apiFetch('/predictive?n_countries=10');
+    const riskTable = d.country_risk_table || [];
+    const agg       = d.aggregate_forecast || [];
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+        <div class="stat-card visible">
+          <div class="stat-label">Countries Analysed</div>
+          <div class="stat-value">${d.countries_analysed || 0}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Critical Risk</div>
+          <div class="stat-value" style="color:#f87171">${(d.critical_countries||[]).length}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">High Risk</div>
+          <div class="stat-value" style="color:#fbbf24">${(d.high_risk_countries||[]).length}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Forecast Horizon</div>
+          <div class="stat-value">${d.forecast_horizon_years || 10}y</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="chart-card">
+          <h3>Country Risk Scores</h3>
+          <div id="risk-rows" style="padding-top:4px;"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Aggregate Forecast — Sum of Top Countries</h3>
+          <div class="chart-wrap" style="height:300px">
+            <canvas id="ch-agg-forecast"></canvas>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Risk rows
+    const rr = document.getElementById('risk-rows');
+    rr.innerHTML = riskTable.map(r => `
+      <div class="risk-row">
+        <div class="risk-country">${r.country}</div>
+        <div class="risk-score-bar-wrap">
+          <div class="risk-score-bar-bg">
+            <div class="risk-score-bar"
+                 style="width:0%;background:${riskBarColor(r.risk_label)}"
+                 data-target="${Math.min(r.risk_score||0, 100)}"></div>
+          </div>
+        </div>
+        <div class="risk-score-num">${(r.risk_score||0).toFixed(0)}</div>
+        <span class="risk-badge risk-${r.risk_label}">${r.risk_label}</span>
+      </div>
+    `).join('');
+
+    // Animate bars
+    setTimeout(() => {
+      document.querySelectorAll('.risk-score-bar').forEach(bar => {
+        bar.style.width = bar.dataset.target + '%';
+      });
+    }, 100);
+
+    // Aggregate forecast
+    mkChart('ch-agg-forecast', {
+      type: 'bar',
+      data: {
+        labels: agg.map(r => r.year),
+        datasets: [{
+          data: agg.map(r => r.aggregate_co2_tons),
+          backgroundColor: agg.map((r, i) => `rgba(239,68,68,${0.45 + i * 0.04})`),
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+        },
+      }
+    });
+
+  } catch(err) {
+    el.innerHTML = errorBox(err.message);
+  }
+}
+
+// ── PRESCRIPTIVE ─────────────────────────────────────────────────
+async function loadPrescriptive() {
+  const el = document.getElementById('presc-content');
+  el.innerHTML = spinner();
+  try {
+    const d = await apiFetch('/prescriptive?n_countries=10&reduction_target_pct=45');
+    const prescriptions = d.country_prescriptions || [];
+
+    const gapTons = d.global_gap_tons || 0;
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+        <div class="stat-card visible">
+          <div class="stat-label">Reduction Target</div>
+          <div class="stat-value">${d.reduction_target_pct}%</div>
+          <div class="stat-sub">below 2019 by 2030</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Over Target</div>
+          <div class="stat-value" style="color:#f87171">${d.countries_over_target}</div>
+          <div class="stat-sub">immediate action needed</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">On Track</div>
+          <div class="stat-value" style="color:#a3e635">${d.countries_on_track}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Global Gap 2030</div>
+          <div class="stat-value" style="color:${gapTons>0?'#f87171':'#a3e635'}">${fmtTons(Math.abs(gapTons))}</div>
+          <div class="stat-sub">tons ${gapTons>0?'over':'under'} target</div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:24px;">
+        <h3>Emission Gap to Paris Target (% of 2019 Baseline)</h3>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="ch-gap"></canvas>
+        </div>
+      </div>
+
+      <div id="presc-cards"></div>
+    `;
+
+    // Gap chart
+    mkChart('ch-gap', {
+      type: 'bar',
+      data: {
+        labels: prescriptions.map(p => p.country),
+        datasets: [{
+          data: prescriptions.map(p => p.gap_pct_of_baseline),
+          backgroundColor: prescriptions.map(p =>
+            p.urgency === 'Immediate' ? 'rgba(239,68,68,0.75)' : 'rgba(163,230,53,0.65)'
+          ),
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            grid: { color: '#1e2e1e' },
+            ticks: { callback: v => v.toFixed(0) + '%' },
+          },
+        },
+      }
+    });
+
+    // Prescription cards
+    const cardsEl = document.getElementById('presc-cards');
+    cardsEl.innerHTML = prescriptions.map(p => `
+      <div class="presc-card">
+        <div class="presc-header">
+          <div class="presc-country">${p.country}</div>
+          <span class="risk-badge risk-${p.risk_label}">${p.risk_label}</span>
+          <span class="${p.urgency === 'Immediate' ? 'urgency-immediate' : 'urgency-ontrack'}">
+            ${p.urgency === 'Immediate' ? '⚠ Immediate' : '✓ On Track'}
+          </span>
+        </div>
+        <div class="presc-metrics">
+          <div class="presc-metric">
+            <div class="presc-metric-label">2019 Baseline</div>
+            <div class="presc-metric-value">${fmtTons(p.baseline_2019_tons)}</div>
+          </div>
+          <div class="presc-metric">
+            <div class="presc-metric-label">2030 Target</div>
+            <div class="presc-metric-value" style="color:#a3e635">${fmtTons(p.target_2030_tons)}</div>
+          </div>
+          <div class="presc-metric">
+            <div class="presc-metric-label">2030 Forecast</div>
+            <div class="presc-metric-value" style="color:${p.urgency==='Immediate'?'#f87171':'#a3e635'}">
+              ${fmtTons(p.forecast_2030_tons)}
+            </div>
+          </div>
+        </div>
+        <div class="presc-actions">
+          <ul style="padding-left:18px;">
+            ${(p.recommended_actions||[]).map(a => `<li>${a}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    `).join('');
+
+  } catch(err) {
+    el.innerHTML = errorBox(err.message);
+  }
+}
+
+// ── COUNTRY HISTORY ──────────────────────────────────────────────
+async function loadCountryHistory() {
+  const country = document.getElementById('country-search').value.trim();
+  const since   = document.getElementById('since-year').value || 1950;
+  const el      = document.getElementById('country-content');
+
+  if (!country) {
+    el.innerHTML = '<div class="error-box">Please enter a country name.</div>';
+    return;
+  }
+
+  el.innerHTML = spinner();
+  try {
+    const d = await apiFetch(`/country/${encodeURIComponent(country)}/history?since=${since}`);
+    const records = d.records || [];
+
+    if (!records.length) {
+      el.innerHTML = errorBox(`No data found for "${country}" since ${since}.`);
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="chart-card">
+        <h3>${country} — Annual CO2 Emissions</h3>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="ch-history"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>${country} — Year-over-Year Change (%)</h3>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="ch-yoy"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Data Table</h3>
+        <div style="max-height:300px;overflow-y:auto;">
+          <table class="data-table">
+            <thead><tr>
+              <th>Year</th><th>CO2 (Tons)</th><th>YoY %</th><th>10Y Avg</th><th>Per Capita</th>
+            </tr></thead>
+            <tbody>
+              ${records.slice().reverse().map(r => `
+                <tr>
+                  <td>${r.year}</td>
+                  <td>${fmtTons(r.co2_tons)}</td>
+                  <td class="${r.co2_yoy_pct > 0 ? 'positive' : r.co2_yoy_pct < 0 ? 'negative' : ''}">
+                    ${r.co2_yoy_pct != null ? r.co2_yoy_pct.toFixed(2) + '%' : '—'}
+                  </td>
+                  <td>${r.co2_rolling_10y != null ? fmtTons(r.co2_rolling_10y) : '—'}</td>
+                  <td>${r.co2_per_capita != null ? fmtTons(r.co2_per_capita) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    mkChart('ch-history', {
+      type: 'line',
+      data: {
+        labels: records.map(r => r.year),
+        datasets: [
+          {
+            label: 'CO2 Emissions', data: records.map(r => r.co2_tons),
+            borderColor: '#a3e635', borderWidth: 1.5,
+            fill: true,
+            backgroundColor: ctx => {
+              const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+              g.addColorStop(0,'rgba(163,230,53,0.2)');
+              g.addColorStop(1,'rgba(163,230,53,0)');
+              return g;
+            },
+            pointRadius: 0, tension: 0.3,
+          },
+          {
+            label: '10Y Rolling Avg', data: records.map(r => r.co2_rolling_10y),
+            borderColor: '#f59e0b', borderWidth: 1.5,
+            borderDash: [5,3], pointRadius: 0, tension: 0.3, fill: false,
+          },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { boxWidth: 12 } } },
+        scales: {
+          x: { grid: { color: '#1e2e1e' } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+        },
+      }
+    });
+
+    mkChart('ch-yoy', {
+      type: 'bar',
+      data: {
+        labels: records.map(r => r.year),
+        datasets: [{
+          data: records.map(r => r.co2_yoy_pct),
+          backgroundColor: records.map(r =>
+            r.co2_yoy_pct > 0 ? 'rgba(239,68,68,0.7)' : 'rgba(163,230,53,0.7)'
+          ),
+          borderRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => v?.toFixed(1) + '%' } },
+        },
+      }
+    });
+
+  } catch(err) {
+    el.innerHTML = errorBox(err.message);
+  }
+}
+
+// ── FORECAST ────────────────────────────────────────────────────
+async function loadForecast() {
+  const country = document.getElementById('fc-country-search').value.trim();
+  const el      = document.getElementById('forecast-content');
+  const btn     = document.getElementById('fc-btn');
+
+  if (!country) {
+    el.innerHTML = '<div class="error-box">Please enter a country name.</div>';
+    return;
+  }
+
+  el.innerHTML = spinner();
+  btn.disabled = true;
+  btn.textContent = 'Fitting…';
+
+  try {
+    const d = await apiFetch(`/forecast/${encodeURIComponent(country)}?use_cache=true`);
+
+    const histYears = d.historical_years || [];
+    const histVals  = d.historical_values || [];
+    const fcYears   = d.forecast_years || [];
+    const fcVals    = d.forecast_values || [];
+    const lower     = d.conf_int_lower || [];
+    const upper     = d.conf_int_upper || [];
+
+    const recent = 50;
+    const displayHistYears = histYears.slice(-recent);
+    const displayHistVals  = histVals.slice(-recent);
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;">
+        <div class="stat-card visible">
+          <div class="stat-label">ARIMA Order</div>
+          <div class="stat-value" style="font-size:18px">(${(d.order||[]).join(',')})</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">AIC</div>
+          <div class="stat-value" style="font-size:18px">${(d.aic||0).toFixed(1)}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">RMSE</div>
+          <div class="stat-value" style="font-size:18px">${fmtTons(d.rmse)}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Risk Score</div>
+          <div class="stat-value" style="font-size:18px;color:${riskBarColor(d.risk_label)}">${(d.risk_score||0).toFixed(1)}</div>
+        </div>
+        <div class="stat-card visible">
+          <div class="stat-label">Risk Level</div>
+          <div style="margin-top:6px"><span class="risk-badge risk-${d.risk_label}">${d.risk_label||'—'}</span></div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:24px;">
+        <h3>${country} — CO2 Forecast (${fcYears[0] || ''}–${fcYears[fcYears.length-1] || ''})</h3>
+        <div class="chart-wrap" style="height:340px">
+          <canvas id="ch-forecast-main"></canvas>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="chart-card">
+          <h3>Risk Score Components</h3>
+          <div class="chart-wrap" style="height:220px">
+            <canvas id="ch-risk-components"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>Forecast Values</h3>
+          <table class="data-table">
+            <thead><tr><th>Year</th><th>Forecast</th><th>Lower 95%</th><th>Upper 95%</th></tr></thead>
+            <tbody>
+              ${fcYears.map((yr, i) => `
+                <tr>
+                  <td>${yr}</td>
+                  <td>${fmtTons(fcVals[i])}</td>
+                  <td style="color:var(--lime)">${fmtTons(lower[i])}</td>
+                  <td style="color:#f87171">${fmtTons(upper[i])}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    // Main forecast chart — combine historical + forecast on one chart
+    const allLabels = [...displayHistYears.map(String), ...fcYears.map(String)];
+    const histData  = [...displayHistVals, ...fcYears.map(() => null)];
+    const fcData    = [...displayHistYears.map(() => null), ...fcVals];
+    const lowerData = [...displayHistYears.map(() => null), ...lower];
+    const upperData = [...displayHistYears.map(() => null), ...upper];
+
+    mkChart('ch-forecast-main', {
+      type: 'line',
+      data: {
+        labels: allLabels,
+        datasets: [
+          {
+            label: 'Historical', data: histData,
+            borderColor: '#a3e635', borderWidth: 2,
+            pointRadius: 0, tension: 0.3, fill: false,
+          },
+          {
+            label: 'Forecast', data: fcData,
+            borderColor: '#f59e0b', borderWidth: 2,
+            borderDash: [6, 3], pointRadius: 4,
+            pointBackgroundColor: '#f59e0b', tension: 0.2, fill: false,
+          },
+          {
+            label: 'Upper 95%', data: upperData,
+            borderColor: 'rgba(239,68,68,0.3)', borderWidth: 1,
+            pointRadius: 0, fill: '+1',
+            backgroundColor: 'rgba(239,68,68,0.08)', tension: 0.2,
+          },
+          {
+            label: 'Lower 95%', data: lowerData,
+            borderColor: 'rgba(163,230,53,0.3)', borderWidth: 1,
+            pointRadius: 0, tension: 0.2, fill: false,
+          },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { boxWidth: 14, filter: i => i.text !== 'Lower 95%' } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+          x: { grid: { color: '#1e2e1e' } },
+          y: { grid: { color: '#1e2e1e' }, ticks: { callback: v => fmtTons(v) } },
+        },
+      }
+    });
+
+    // Risk components
+    mkChart('ch-risk-components', {
+      type: 'bar',
+      data: {
+        labels: ['Emission Level', 'Trend (10Y)', 'Forecast Slope'],
+        datasets: [{
+          data: [d.level_component || 0, d.trend_component || 0, d.forecast_component || 0],
+          backgroundColor: ['rgba(163,230,53,0.75)','rgba(245,158,11,0.75)','rgba(239,68,68,0.75)'],
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#1e2e1e' }, max: 40, ticks: { callback: v => v.toFixed(0) } },
+          y: { grid: { display: false } },
+        },
+      }
+    });
+
+  } catch(err) {
+    el.innerHTML = errorBox(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Forecast';
+  }
+}
+
+// ── Enter key on search inputs ───────────────────────────────────
+document.getElementById('country-search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadCountryHistory();
+});
+document.getElementById('fc-country-search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadForecast();
+});
+document.getElementById('api-url').addEventListener('keydown', e => {
+  if (e.key === 'Enter') connectApi();
+});
+
+// ── Boot ─────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('api-url-display').textContent = API_BASE;
+
+  // Orchestrated entrance
+  setTimeout(() => {
+    document.getElementById('sidebar').classList.add('visible');
+  }, 80);
+
+  init();
+});
+</script>
+</body>
+</html>
